@@ -1,0 +1,186 @@
+---
+title: "Data Wrangling Exercise 01"
+author: "Tom Thorpe"
+date: "March 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Springboard Data Science Foundation Class
+Exercise 01 - Data Wrangling - Refine Data
+
+## Objective
+Practice using *tidy* and *dplyr* packages to clean up data in a practice dataset.
+
+## Exercise Results
+Load the tidy and dplyr libraries for exercise.
+```{r}
+#library(devtools)
+library(tidyr)
+library(dplyr)
+```
+
+### Identify input and output files
+The practice data set was downloaded into a file called, "refine_original.csv" and
+the cleaned data will be stored in a file named, "refine_clean.csv".
+```{r}
+infile = "C:/Users/Tom/git/datasciencefoundation/DataWrangleExer01/refine_original.csv"
+outfile = "C:/Users/Tom/git/datasciencefoundation/DataWrangleExer01/refine_clean.csv"  
+```
+
+### Read CSV file into a dataframe
+```{r}
+refineData <- read.csv(file=infile, header=TRUE, sep=",")
+```
+
+Lets see what the data looks like:
+```{r}
+print(refineData)
+```
+
+Load into a local data frame and check it's contents.
+```{r}
+products <- tbl_df(refineData) 
+print(products)
+```
+
+### Clean Company Name
+The first taks to is clean up company names by correcting spellings.
+The company names have various mis-spelling that most all start with the first letter of 
+the company name. The exception is one entry that starts the spelling of 'philips' with an 'f'.
+A regular expression is used to select the appropriate records for each of the company names by 
+checking the first character of the company name and change the
+name to 'adzo', philips', 'unilever', or 'van houten' 
+
+```{r}
+products$company[grepl("^a",products$company,ignore.case=TRUE)] <- "akzo"
+products$company[grepl("^p|^f",products$company,ignore.case=TRUE)] <- "philips"
+products$company[grepl("^u",products$company,ignore.case=TRUE)] <- "unilever"
+products$company[grepl("^v",products$company,ignore.case=TRUE)] <- "van houten"
+```
+Check the results:
+```{r}
+print(products,n=30)
+```
+### Separate Product Code Number
+Next separate the product code number into *product_code* and *product_number* columns by using
+the *separate* function to split the data at the dash. 
+The exercise instructions do not indicate if the *Product.code...number* column is
+to be kept or removed, so it is kept by setting the *remove* option to **FALSE**.
+```{r}
+products <- separate(products,Product.code...number,
+                     c("product_code","product_number"),
+                     sep="-",
+                     remove=FALSE)
+```
+
+Check the results:
+```{r}
+select(products,contains("product")) %>% print(n=25)
+```
+### Create *product_category* column
+A *product_category* column is created to give a descriptive name to the product code.
+First the column is created with the mutate function. The value is defaulted to **NA**.
+```{r}
+products <- mutate(products,product_category=NA)
+select(products,contains("product")) %>% print(n=25)
+```
+Then the column is populated based on the value of the *product_code* using two different logical tests:
+```{r}
+products$product_category[grepl("p",products$product_code)] <- "Smartphone"
+products$product_category[grepl("q",products$product_code)] <- "Tablet"
+products$product_category[products$product_code=="v"] <- "TV"
+products$product_category[products$product_code=="x"] <- "Laptop"
+```
+Check the results:
+```{r}
+select(products,contains("product")) %>% print(n=25)
+```
+
+### Create a full address column
+To enable Geo-coding, a *full_address* column is added 
+by combining the *address*, *city* and *state* columns, with each column separated by a comma.
+```{r}
+products <- mutate(products,full_address=paste(address,",",city,",",country))
+```
+Check the results:
+```{r}
+select(products,c("address","city","country","full_address")) %>% print(n=25)
+```
+The *full_address* is being truncated. Since the *city* and *country* are the same for each row, lets just look at the *address* and *full_address*.
+```{r}
+select(products,contains("address")) %>% print(n=25)
+```
+
+# Create binary columns for data analysis
+New binary category columns are created to allow for easier data analysis. The binary columns have
+a value of zero unless the data represented by the column is present for that row.
+
+Four columns are created representing each possible company and the value is defaulted to 0.
+```{r}
+products <- mutate(products,company_philips=0)
+products <- mutate(products,company_akzo=0)
+products <- mutate(products,company_van_houten=0)
+products <- mutate(products,company_unilever=0)
+```
+
+Then the the company category column values are set to 1 if the corresponding company name is present.
+```{r}
+products$company_akzo[products$company=="akzo"] <- 1
+products$company_philips[products$company=="philips"] <- 1
+products$company_van_houten[products$company=="van houten"] <- 1
+products$company_unilever[products$company=="unilever"] <- 1
+```
+
+Check the results.
+```{r}
+select(products,contains("company")) %>% print(n=25)
+```
+Next create binary data columns for the product code.
+I was wondering if there was a way to create the column and set the value all on the same line and
+tried a few ways. I first tried the following and it produced an error:
+```{r}
+products <- mutate(products,product_tablet2=(if(products$product_category=="Tablet"){1}else{0}))
+```
+Remove the product_tablet2 column.
+```{r}
+products <- select(products,-product_tablet2)
+```
+Next I tried the *ifelse* construct and found it worked and was able to create the column
+and set the value in one statement.
+
+```{r}
+products <- mutate(products,product_smartphone=ifelse(product_category=="Smartphone",1,0))
+products <- mutate(products,product_tv=ifelse(product_category=="TV",1,0))
+products <- mutate(products,product_laptop=ifelse(product_category=="Laptop",1,0))
+products <- mutate(products,product_tablet=ifelse(product_category=="Tablet",1,0))
+```
+
+Check the results using different selects.
+```{r}
+select(products,contains("product")) %>% print(n=25)
+# The below was working
+select(products,9,15:18) %>% print(n=25)
+# but now getting error:
+#   Error in combine_vars(vars, ind_list) : Position must be between 0 and n
+# It's working again. I had an error in the mutate functions 
+# and was not actually creating the new columns, so the 15:18 range was invalid.
+select(products,contains("product"),
+       -Product.code...number,
+       -product_code,
+       -product_number) %>% 
+  print(n=25)
+select(products,"product_category","product_tablet") %>% print(n=25)
+#View(products)
+```
+Lets look at the final structure for fun.
+```{r}
+str(products)
+```
+Save the cleaned data in a CSV file.
+```{r}
+write.csv(products, file=outfile,row.names=FALSE)
+```
+That concludes the exercise.
