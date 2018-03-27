@@ -1,3 +1,8 @@
+# Springboard Data Science Foundation Class
+# Exercise 01 - Data Wrangling - Refine Data
+# Clean up and extend data in an practice dataset of product information.
+
+
 library(devtools)
 library(tidyr)
 library(dplyr)
@@ -49,7 +54,7 @@ select(products,contains("company")) %>% print(n=25)
 products$product_smartphone[products$product_category=="Smartphone"] <- 1
 products$product_laptop[products$product_category=="Laptop"] <- 1
 products$product_tv[products$product_category=="TV"] <- 1
-products$product_tablet[products$product_category=="Tablet"] <- 1
+products$product_tablet[products$product_category=="Tablet"] <- 1 
 
 # this doesn't work:
 # products <- mutate(products,product_tab2=(if(products$product_category=="Tablet"){1}else{0}))
